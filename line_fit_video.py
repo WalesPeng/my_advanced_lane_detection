@@ -19,8 +19,8 @@ arrfitL = [] #存储左车道线的参数和曲率
 arrfitR = [] #存储右车道线的参数和曲率
 
 alpha = .70     # 指数平滑系数（值越大，离当前最近的数值权重越大）
-curve_thresh = 0.2  # 曲率最大变化阈值，超过阈值的滤除
-bottom_x_thresh = 0.2    # x轴截距偏离历史帧的阈值，超过阈值的滤除
+curve_thresh = 0.35  # 曲率最大变化阈值，超过阈值的滤除
+bottom_x_thresh = 0.35    # x轴截距偏离历史帧的阈值，超过阈值的滤除
 maxHistoryNum = 5  # 最大历史帧数
 # global countFilter
 # countFilter = 2   # 过滤次数
@@ -66,7 +66,7 @@ def annotate_image(img_in, src, dst, detectedfast, T, num_img):
     # 边缘检测阈值
     img, abs_bin, mag_bin, dir_bin, WY_BIN = combined_thresh(undist)
     # 透视变换
-    binary_warped, binary_unwarped, m, m_inv = perspective_transform(img, src, dst)
+    binary_warped, binary_unwarped, m, m_inv = perspective_transform(img)
     # Perform polynomial fit执行多项式拟合
     if not detected:
         # Slow line fit
@@ -93,6 +93,7 @@ def annotate_image(img_in, src, dst, detectedfast, T, num_img):
                 detected = True  # slow line fit always detects the line
         else:
             return img_in
+            # return arrfitL, arrfitR, new_warp, newwarpNO, color_warp, img_in, out_img, histo
     else:  # implies detected == True
         # Fast line fit
         left_fit = left_line.get_fit()
@@ -161,8 +162,8 @@ def annotate_image(img_in, src, dst, detectedfast, T, num_img):
 
     # viz1(binary_warped, ret, save_file=None)
 
-    # return img, WY_BIN, binary_unwarped, binary_warped, color_warp, result, arrfitL, arrfitR, new_warp, newwarpNO, out_img, histo
-    return arrfitL, arrfitR, new_warp, newwarpNO, color_warp, result, out_img, histo
+    return img, WY_BIN, color_warp, result, arrfitL, arrfitR, new_warp, newwarpNO, out_img, histo
+    # return arrfitL, arrfitR, new_warp, newwarpNO, color_warp, result, out_img, histo
     # return result, new_warp, newwarpNO
 
 
@@ -251,15 +252,15 @@ if __name__ == '__main__':
     T = 0.8
 
     filedir = 'D:/CIDI/data/L/'
-    imgdir = filedir + 'Rectified_L/'
-    savedir = filedir + 'result1/'
-    newwarddir = filedir + 'lane_ROI/'  # 存储行驶区域模板
+    imgdir = filedir + 'Rectified_tire/'
+    savedir = filedir + 'result_tire/'
+    newwarddir = filedir + 'lane_ROI_tire/'  # 存储行驶区域模板
     # newwarddir 存储行驶区域模板
     imgformat = 'L.jpg'
 
     plt.figure(1)
     # 图片序号i：#cidi20180418：1-390 709:790
-    for i in range(18670, 20600):
+    for i in range(1766, 2999):
         print(detected)
         orig = '%s%06d' % ('orig:', i)
         # print(orig)
@@ -273,8 +274,8 @@ if __name__ == '__main__':
         print(img1.shape)
         # plt.imshow(img1)
         # plt.show()
-        arrfitL, arrfitR, new_warp, newwarpNO, color_warp, result, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
-        # img, WY_BIN, binary_unwarped, binary_warped, color_warp, result, arrfitL, arrfitR, new_warp, newwarpNO, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
+        # arrfitL, arrfitR, new_warp, newwarpNO, color_warp, result, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
+        img, WY_BIN, color_warp, result, arrfitL, arrfitR, new_warp, newwarpNO, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
         # result, new_warp, newwarpNO = annotate_image(img1, src, dst, detectedfast, T, i)
         # --------------画图-----------------
         # plt.figure(1)
@@ -282,54 +283,54 @@ if __name__ == '__main__':
         if plot_sub:
             fig = plt.gcf()
             fig.set_size_inches(16.5, 8)
-            # # 边缘图像
-            # plt.subplot(2, 3, 1)
-            # plt.imshow(img, cmap='gray', vmin=0, vmax=1)
-            # plt.plot(x, y)
+            # 阈值分割提取黄、白车道线
+            plt.subplot(2, 3, 1)
+            plt.imshow(WY_BIN, cmap='gray', vmin=0, vmax=1)
+            # plt.imshow(binary_unwarped, cmap='gray', vmin=0, vmax=1)
+            plt.plot(x, y)
+            plt.title('filter bin')
+            # 边缘图像
+            plt.subplot(2, 3, 2)
+            plt.imshow(img, cmap='gray', vmin=0, vmax=1)
+            plt.plot(x, y)
+            plt.title('combined thresh')
+            # 直方图
+            plt.subplot(2, 3, 3)
+            plt.plot(histo)
+            plt.title('histo')
+            # 结果图
+            plt.subplot(2, 3, 4)
+            plt.imshow(result)
+            plt.title('result')
+            plt.plot(x, y)
+            # 变换后的拟合线
+            plt.subplot(2, 3, 5)
+            plt.imshow(color_warp, cmap='gray', vmin=0, vmax=1)
+            plt.title('fit line')
+            # 滑移窗口
+            plt.subplot(2, 3, 6)
+            plt.imshow(out_img)
+            plt.plot(x, y)
+            plt.title('Search Process')
+
+            # # 直方图
+            # plt.subplot(2, 2, 1)
+            # plt.plot(histo)
             # plt.title('histo')
-            # # 未变换的ROI
-            # plt.subplot(2, 3, 2)
-            # plt.imshow(WY_BIN, cmap='gray', vmin=0, vmax=1)
-            # # plt.imshow(binary_unwarped, cmap='gray', vmin=0, vmax=1)
-            # plt.plot(x, y)
-            # plt.title('ROI')
-            # # 变换后的ROI
-            # plt.subplot(2, 3, 3)
-            # plt.imshow(binary_warped, cmap='gray', vmin=0, vmax=1)
-            # plt.title('warped ROI')
             # # 结果图
-            # plt.subplot(2, 3, 4)
+            # plt.subplot(2, 2, 2)
             # plt.imshow(result)
             # plt.title('result')
             # plt.plot(x, y)
             # # 滑移窗口
-            # plt.subplot(2, 3, 5)
+            # plt.subplot(2, 2, 3)
             # plt.imshow(out_img)
             # plt.plot(x, y)
             # plt.title('Search Process')
             # # 变换后的拟合线
-            # plt.subplot(2, 3, 6)
+            # plt.subplot(2, 2, 4)
             # plt.imshow(color_warp, cmap='gray', vmin=0, vmax=1)
             # plt.title('fit line')
-
-            # 直方图
-            plt.subplot(2, 2, 1)
-            plt.plot(histo)
-            plt.title('histo')
-            # 结果图
-            plt.subplot(2, 2, 2)
-            plt.imshow(result)
-            plt.title('result')
-            plt.plot(x, y)
-            # 滑移窗口
-            plt.subplot(2, 2, 3)
-            plt.imshow(out_img)
-            plt.plot(x, y)
-            plt.title('Search Process')
-            # 变换后的拟合线
-            plt.subplot(2, 2, 4)
-            plt.imshow(color_warp, cmap='gray', vmin=0, vmax=1)
-            plt.title('fit line')
 
             # plt.tight_layout()
 
