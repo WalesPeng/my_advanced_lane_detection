@@ -21,7 +21,7 @@ def line_fit(binary_warped, T):
     img_roi_width = binary_warped.shape[1]  # [3]设置ROI区域的宽度
 
     img_roi = binary_warped[img_roi_y:img_roi_height, img_roi_x:img_roi_width]
-
+    # cv2.imshow('img_roi', img_roi)
     histogram = np.sum(img_roi[0 :, :], axis=0)
     # histogram = np.sum(img_roi[int(np.floor(binary_warped.shape[0]*(1-T))):,:], axis=0)
     # plt.show()
@@ -36,6 +36,8 @@ def line_fit(binary_warped, T):
     midpoint = np.int(histogram.shape[0]/2)
     leftx_base = np.argmax(histogram[100:midpoint]) + 100
     rightx_base = np.argmax(histogram[midpoint:-100]) + midpoint
+
+    # PMH：如果一边未检测到车道线，即无直方图峰值，则根据另一条车道线复制一个搜索起点
     if (leftx_base == 100):
         leftx_base = np.argmax(histogram[midpoint:-100]) - midpoint
     if (rightx_base == midpoint):
@@ -75,7 +77,7 @@ def line_fit(binary_warped, T):
     # plt.plot(histogram)
     # Step through the windows one by one
     # 逐一浏览窗口
-    for window in range(nwindows-3):
+    for window in range(nwindows):
         # Identify window boundaries in x and y (and right and left)
         # 确定x和y（以及右和左）的窗口边界
         win_y_low = binary_warped.shape[0] - (window+1)*window_height
@@ -95,8 +97,8 @@ def line_fit(binary_warped, T):
         cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
 
 
-        plt.subplot(2, 1, 2)
-        plt.imshow(out_img, cmap='gray', vmin=0, vmax=1)
+        # plt.subplot(2, 1, 2)
+        # plt.imshow(out_img, cmap='gray', vmin=0, vmax=1)
         # Identify the nonzero pixels in x and y within the window
         # 确定窗口内x和y的非零像素
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
@@ -122,6 +124,7 @@ def line_fit(binary_warped, T):
         else:
             if window > 2:
                 rightx_current_next = rightx_current + (rightx_current - rightx_current_last)
+                # right_lane_inds.append(good_right_inds)
             else:
                 rightx_current_next = rightx_base
 
@@ -375,13 +378,32 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
 
     # 透过透视变换的矩阵求出点坐标（透视变换后的四个点----》原图的四个点）
     a1 = [left_fitx[0], ploty[0], 1]
-    a2 = [left_fitx[-1], ploty[-1], 1]
+    a2 = [left_fitx[undist.shape[0]-150], ploty[undist.shape[0]-150], 1]
     a3 = [right_fitx[0], ploty[0], 1]
-    a4 = [right_fitx[-1], ploty[-1], 1]
+    a4 = [right_fitx[undist.shape[0]-150], ploty[undist.shape[0]-150], 1]
     a = [a1, a2, a3, a4]
     rr1 = np.dot(a, m_inv.T)
-    xx1 = np.ceil(rr1[:, 0] / rr1[:, 2]) # x坐标
+    xx1 = np.ceil(rr1[:, 0] / rr1[:, 2]) # x坐标, 逆透视变换回来的坐标  np.ceil朝正无穷大取整数，注意除以缩放系数
     yy1 = np.ceil(rr1[:, 1] / rr1[:, 2]) # y坐标
+
+    # 将车道线坐标点 经过逆透视变换后转换到原坐标系
+    left_points = []
+    right_points = []
+    for i in range(len(left_fitx)):
+        left_point = [left_fitx[i], ploty[i], 1]
+        right_point = [right_fitx[i], ploty[i], 1]
+        left_points.append(left_point)
+        right_points.append(right_point)
+    left_point_inv_trans = np.dot(left_points, m_inv.T)
+    right_point_inv_trans = np.dot(right_points, m_inv.T)
+
+    # 逆透视变换回来的车道线坐标，注意除以缩放系数。np.ceil朝正无穷大取整数。
+    left_point_inv_xx = np.ceil(left_point_inv_trans[:, 0] / left_point_inv_trans[:, 2])
+    left_point_inv_yy = np.ceil(left_point_inv_trans[:, 1] / left_point_inv_trans[:, 2])
+
+    right_point_inv_xx = np.ceil(right_point_inv_trans[:, 0] / right_point_inv_trans[:, 2])
+    right_point_inv_yy = np.ceil(right_point_inv_trans[:, 1] / right_point_inv_trans[:, 2])
+
 
     # Create an image to draw the lines on 创建一个图像来绘制线条
     # warp_zero = np.zeros_like(warped).astype(np.uint8)
@@ -395,8 +417,22 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
     pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
     pts = np.hstack((pts_left, pts_right))
 
+    # 将逆透视变换后的车道线坐标点坐标转换为可用格式。
+    pts_inv_left = np.array([np.transpose(np.vstack([left_point_inv_xx, left_point_inv_yy]))])
+    pts_inv_right = np.array([np.flipud(np.transpose(np.vstack([right_point_inv_xx, right_point_inv_yy])))])
+    pts_inv = np.hstack((pts_inv_left, pts_inv_right))
+
+    # PMH 画车道线 参数：输入图像，点坐标，是否封闭，颜色，线宽，线类型。cv2.LINE_AA是反锯齿线，画曲线比较平滑
+    cv2.polylines(color_warp, np.int_([pts]), False, (255, 0, 0), 10, cv2.LINE_AA)
+
+    for ai in a:
+        cv2.circle(color_warp, (np.int_(ai[0]), np.int_(ai[1])), 10, (0, 0, 255), -1)        # 绘制车道线两端圆点
+
+    # cv2.imshow('polylines', color_warp)
     # Draw the lane onto the warped blank image将车道绘制到变形的空白图像上
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+    # cv2.imshow('color_warp', color_warp)
+
     # result = cv2.addWeighted(undist, 1, color_warp, 0.3, 0)
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
@@ -405,26 +441,20 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
     # Combine the result with the original image 将结果与原始图像组合在一起
     # cv2.imwrite('test.jpg',newwarp)
     newwarpNO = cv2.warpPerspective(color_warp, m_inv, (undist.shape[1], undist.shape[0]))
-    newwarp[0:int(yy1[0]), int(xx1[0]):int(xx1[2])] = [0, 255, 0]
+    newwarp[0:int(yy1[2]), int(xx1[0]):int(xx1[2])] = [0, 255, 0]
 
-    # plt.figure(3)
-    # plt.subplot(2, 2, 1)
-    # plt.title('color_warp')
-    # plt.imshow(color_warp, cmap='gray', vmin=0, vmax=1)
-    #
-    # plt.subplot(2, 2, 3)
-    # plt.imshow(newwarp)
-    # plt.title('newwarp')
-    #
-    # plt.subplot(2, 2, 4)
-    # plt.imshow(newwarpNO)
-    # plt.title('newwarpNO')
-    # plt.show()
     if undist.shape.__len__() == 3:
         result = cv2.addWeighted(undist, 1, newwarpNO, 0.3, 0)
     else:
         out_img = (np.dstack((undist, undist, undist)) * 255).astype('uint8')
         result = cv2.addWeighted(out_img, 1, newwarpNO, 0.3, 0)
+
+    # 在结果图上绘制车道线
+    for i in range(4):
+        cv2.circle(result, (int(xx1[i]), int(yy1[i])), 10, (0, 255, 255), -1)        # 绘制车道线两端圆点
+
+    cv2.polylines(result, np.int_([pts_inv]), False, (0, 0, 255), 6, cv2.LINE_AA)
+    # cv2.imshow('result', result)
     # Annotate lane curvature values and vehicle offset from center
     # 从中心注释车道曲率值和车辆偏移量
     # avg_curve = (left_curve + right_curve)/2
