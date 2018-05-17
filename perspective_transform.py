@@ -5,12 +5,25 @@ import matplotlib.image as mpimg
 import pickle
 from combined_thresh import combined_thresh
 
-
-def perspective_transform(img, src, dst):
-    """
-    Execute perspective transform
-    """
+def perspective_transform(img):
+    #     """
+    #     Execute perspective transform
+    #     """
     img_size = (img.shape[1], img.shape[0])
+
+    hightdis = [300, 1002]  # dst矩阵上下高度
+    widthdis = [450, 1300]  # dst矩阵左右宽度
+    src = np.float32(
+        [[200, 1050],  # 左下
+         [1820, 1050],  # 右下
+         [720, 530],  # 左上
+         [1250, 530]])  # 右上
+
+    dst = np.float32(
+        [[widthdis[0], hightdis[1]],
+         [widthdis[1], hightdis[1]],
+         [widthdis[0], hightdis[0]],
+         [widthdis[1], hightdis[0]]])
 
     m = cv2.getPerspectiveTransform(src, dst)
     m_inv = cv2.getPerspectiveTransform(dst, src)
@@ -19,6 +32,21 @@ def perspective_transform(img, src, dst):
     unwarped = cv2.warpPerspective(warped, m_inv, (warped.shape[1], warped.shape[0]), flags=cv2.INTER_LINEAR)  # DEBUG
 
     return warped, unwarped, m, m_inv
+
+
+# def perspective_transform(img, src, dst):
+#     """
+#     Execute perspective transform
+#     """
+#     img_size = (img.shape[1], img.shape[0])
+#
+#     m = cv2.getPerspectiveTransform(src, dst)
+#     m_inv = cv2.getPerspectiveTransform(dst, src)
+#
+#     warped = cv2.warpPerspective(img, m, img_size, flags=cv2.INTER_LINEAR)
+#     unwarped = cv2.warpPerspective(warped, m_inv, (warped.shape[1], warped.shape[0]), flags=cv2.INTER_LINEAR)  # DEBUG
+#
+#     return warped, unwarped, m, m_inv
 
 
 if __name__ == '__main__':
