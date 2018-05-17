@@ -93,25 +93,28 @@ def hls_thresh(img, thresh=(100, 255)):
     binary_output[(s_channel > thresh[0]) & (s_channel <= thresh[1])] = 1
     return binary_output
 
-# 在HLS空间下进行白色和黄色的筛选
+# 在HSV空间下进行白色和黄色的筛选
 def select_white_yellow(image):
-    converted = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    converted = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     # white color mask
-    lower = np.uint8([0, 140, 0])
-    upper = np.uint8([255, 255, 255])
+    lower = np.uint8([0, 0, 150])
+    upper = np.uint8([50, 50, 255])
     white_mask = cv2.inRange(converted, lower, upper)
     # yellow color mask
-    lower1 = np.uint8([10,   0, 100])
-    upper1 = np.uint8([160, 255, 255])
+    lower1 = np.uint8([10,  80, 210])
+    upper1 = np.uint8([30, 110, 255])
     yellow_mask = cv2.inRange(converted, lower1, upper1)
     # combine the mask
     mask = cv2.bitwise_or(white_mask, yellow_mask)
     binary_output = np.zeros_like(white_mask)
-    binary_output[mask==255] = 1
+    binary_show = np.zeros_like(white_mask)
+    binary_show = cv2.bitwise_and(image, image, dst=None, mask=mask)
+    binary_output[mask>0] = 1
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
-    binary_output_opened = cv2.morphologyEx(binary_output, cv2.MORPH_OPEN, kernel)
-    binary_output = cv2.dilate(binary_output_opened, kernel)
+    # cv2.imshow('binary_output', binary_show)
+    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    # binary_output_opened = cv2.morphologyEx(binary_output, cv2.MORPH_OPEN, kernel)
+    # binary_output = cv2.dilate(binary_output_opened, kernel)
     # plt.figure(6)
     # plt.imshow(binary_output, cmap='gray', vmin=0, vmax=1)
 
