@@ -3,6 +3,7 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import pickle
+import time
 from combined_thresh import combined_thresh
 from perspective_transform import perspective_transform
 from Line import Line
@@ -19,7 +20,7 @@ arrfitL = [] #存储左车道线的参数和曲率
 arrfitR = [] #存储右车道线的参数和曲率
 
 alpha = .70     # 指数平滑系数（值越大，离当前最近的数值权重越大）
-top_x_thresh = 0.35  # 曲率最大变化阈值，超过阈值的滤除
+top_x_thresh = 0.5  # 曲率最大变化阈值，超过阈值的滤除
 bottom_x_thresh = 0.35    # x轴截距偏离历史帧的阈值，超过阈值的滤除
 maxHistoryNum = 5  # 最大历史帧数
 # global countFilter
@@ -67,6 +68,9 @@ def annotate_image(img_in, src, dst, detectedfast, T, num_img):
     img, abs_bin, mag_bin, dir_bin, WY_BIN = combined_thresh(undist)
     # 透视变换
     binary_warped, binary_unwarped, m, m_inv = perspective_transform(img)
+    # cv2.imshow('img', undist)
+
+
     # Perform polynomial fit执行多项式拟合
     if not detected:
         # Slow line fit
@@ -245,22 +249,25 @@ if __name__ == '__main__':
 
     savefit = True # 是否保存二次函数参数、曲率、车道偏移量
 
-    saveimg = False  # 如果为Trlue则保存输出图，否则只显示图片
+    saveimg = True  # 如果为Trlue则保存输出图，否则只显示图片
 
     savenewward = True # 保存行驶区域
     # 获取图像下半部分的直方图，阈值T = 0.5 ，T越大获取的图像部分越大
     T = 0.8
 
     filedir = 'D:/CIDI/data/L/'
-    imgdir = filedir + 'Rectified_tire/'
-    savedir = filedir + 'result_tire/'
-    newwarddir = filedir + 'lane_ROI_tire/'  # 存储行驶区域模板
+    imgdir = filedir + 'Rectified_L/'
+    savedir = filedir + 'result1/'
+    newwarddir = filedir + 'lane_ROI/'  # 存储行驶区域模板
     # newwarddir 存储行驶区域模板
     imgformat = 'L.jpg'
 
     plt.figure(1)
     # 图片序号i：#cidi20180418：1-390 709:790
-    for i in range(1766, 2999):
+    for i in range(19530, 20600):
+
+
+
         print(detected)
         orig = '%s%06d' % ('orig:', i)
         # print(orig)
@@ -274,11 +281,21 @@ if __name__ == '__main__':
         print(img1.shape)
         # plt.imshow(img1)
         # plt.show()
+
+        start = time.clock()
         # arrfitL, arrfitR, new_warp, newwarpNO, color_warp, result, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
         img, WY_BIN, color_warp, result, arrfitL, arrfitR, new_warp, newwarpNO, out_img, histo = annotate_image(img1, src, dst, detectedfast, T, i)
         # result, new_warp, newwarpNO = annotate_image(img1, src, dst, detectedfast, T, i)
         # --------------画图-----------------
         # plt.figure(1)
+
+        # 统计程序耗时
+        end = time.clock()
+        print('Running time: %s ms' % ((end - start) * 1000))
+
+
+        # result_BGR = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
+        # cv2.imshow('result_BGR', result_BGR)
 
         if plot_sub:
             fig = plt.gcf()
@@ -344,8 +361,8 @@ if __name__ == '__main__':
             fig = plt.gcf()
             fig.set_size_inches(20,10)
             plt.savefig(save_file)
-        else:
-            plt.show()
+        # else:
+        #     plt.show()
 
         if savenewward:
             save_ward = '%s%06d%s' % (newwarddir, i, 'Lr.jpg')
@@ -354,6 +371,8 @@ if __name__ == '__main__':
             cv2.imwrite(save_wardNO, newwarpNO)
 
         plt.clf() # 清图。
+
+
 
     if savefit:
         filename1 = '%s%s' % (savedir,'arrfitL.txt')
@@ -369,3 +388,4 @@ if __name__ == '__main__':
             f2.write(str(i))
             f2.write("\n")
         f2.close()
+
