@@ -3,18 +3,14 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import pickle
+import time
 
 
-def abs_sobel_thresh(img, orient='x', thresh_min=20, thresh_max=100):
+def abs_sobel_thresh(gray, orient='x', thresh_min=20, thresh_max=100):
     """
     Takes an image, gradient orientation, and threshold min/max values
     给定一个图像，梯度方向和阈值最小值/最大值
     """
-    if img.shape.__len__() == 3:
-    # Convert to grayscale转换为灰度
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = img
     # Apply x or y gradient with the OpenCV Sobel() function
     # and take the absolute value
     if orient == 'x':
@@ -31,17 +27,12 @@ def abs_sobel_thresh(img, orient='x', thresh_min=20, thresh_max=100):
     # Return the result
     return binary_output
 
-def mag_thresh(img, sobel_kernel=3, mag_thresh=(30, 100)):
+def mag_thresh(gray, sobel_kernel=3, mag_thresh=(30, 100)):
     """
     Return the magnitude of the gradient
     for a given sobel kernel size and threshold values
     返回给定的sobel内核大小和阈值的梯度大小
     """
-    if img.shape.__len__() == 3:
-    # Convert to grayscale转换为灰度    # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = img
     # Take both Sobel x and y gradients
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
@@ -58,17 +49,12 @@ def mag_thresh(img, sobel_kernel=3, mag_thresh=(30, 100)):
     return binary_output
 
 
-def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
+def dir_threshold(gray, sobel_kernel=3, thresh=(0, np.pi/2)):
     """
     Return the direction of the gradient
     for a given sobel kernel size and threshold values
     返回给定sobel内核大小和阈值的梯度方向
     """
-    if img.shape.__len__() == 3:
-    # Convert to grayscale转换为灰度
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = img
     # Calculate the x and y gradients
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
@@ -155,9 +141,16 @@ def combined_thresh(img):
     RGB_bin = filter_colors(img, white_threshold = 150)
     # plt.figure(4)
     # plt.imshow(RGB_bin)
-    abs_bin = abs_sobel_thresh(img, orient='x', thresh_min=35, thresh_max=255)
-    mag_bin = mag_thresh(img, sobel_kernel=3, mag_thresh=(35, 150))
-    dir_bin = dir_threshold(img, sobel_kernel=15, thresh=(0.7, 1.4)) #57.3*0.7=40.13 1.3*57.3=74
+
+    if img.shape.__len__() == 3:
+    # Convert to grayscale转换为灰度
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img
+
+    abs_bin = abs_sobel_thresh(gray, orient='x', thresh_min=35, thresh_max=255)
+    mag_bin = mag_thresh(gray, sobel_kernel=3, mag_thresh=(35, 150))
+    dir_bin = dir_threshold(gray, sobel_kernel=15, thresh=(0.7, 1.4)) #57.3*0.7=40.13 1.3*57.3=74
     combined = np.zeros_like(dir_bin)
     print(img.shape.__len__())
     if img.shape.__len__() == 3:
