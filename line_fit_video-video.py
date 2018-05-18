@@ -19,13 +19,13 @@ arrfitL = [] #存储左车道线的参数和曲率
 arrfitR = [] #存储右车道线的参数和曲率
 
 alpha = .70     # 指数平滑系数（值越大，离当前最近的数值权重越大）
-curve_thresh = 3  # 曲率最大变化阈值，超过阈值的滤除
-bottom_x_thresh = 0.2    # x轴截距偏离历史帧的阈值，超过阈值的滤除
+top_x_thresh = 0.5  # 曲率最大变化阈值，超过阈值的滤除
+bottom_x_thresh = 0.35    # x轴截距偏离历史帧的阈值，超过阈值的滤除
 maxHistoryNum = 5  # 最大历史帧数
 # global countFilter
 # countFilter = 2   # 过滤次数
-left_curve_history = History(n=maxHistoryNum) #存储历史左车道线的曲率
-right_curve_history = History(n=maxHistoryNum) #存储历史右车道线的曲率
+top_x_left_history = History(n=maxHistoryNum) #存储历史左车道线的曲率
+top_x_right_history = History(n=maxHistoryNum) #存储历史右车道线的曲率
 bottom_x_left_history = History(n=maxHistoryNum) #存储历史左车道线的x轴截距
 bottom_x_right_history = History(n=maxHistoryNum) #存储历史右车道线的x轴截距
 
@@ -61,7 +61,7 @@ def annotate_image(img_in):
 
     global mtx, dist, left_line, right_line, detected, arrfitL, arrfitR
     global left_curve, right_curve, left_lane_inds, right_lane_inds
-    global left_curve_history, right_curve_history, bottom_x_left_history, bottom_x_right_history
+    global top_x_left_history, top_x_right_history, bottom_x_left_history, bottom_x_right_history
     global left_LaneFit_history, right_LaneFit_history
     # Undistort未失真, threshold阈值, perspective transform视角转换
     # undist = cv2.undistort(img_in, mtx, dist, None, mtx)
@@ -71,7 +71,7 @@ def annotate_image(img_in):
     # 透视变换
     binary_warped, binary_unwarped, m, m_inv = perspective_transform(img)
 
-    # cv2.imshow('img', img)
+    # cv2.imshow('img', undist)
     # cv2.imshow('binary_warped', binary_warped)
     # Perform polynomial fit执行多项式拟合
     if not detected:
@@ -130,9 +130,9 @@ def annotate_image(img_in):
     """
     PMH：采用历史帧更新数据
     """
-    left_curve_history, bottom_x_left_history, left_LaneFit_history, is_left_filtered = filter_history(left_curve_history, bottom_x_left_history, left_LaneFit_history,
+    top_x_left_history, bottom_x_left_history, left_LaneFit_history, is_left_filtered = filter_history(top_x_left_history, bottom_x_left_history, left_LaneFit_history,
                                                                                                        top_x_left, bottom_x_left, left_fit)
-    right_curve_history, bottom_x_right_history, right_LaneFit_history, is_right_filtered = filter_history(right_curve_history, bottom_x_right_history, right_LaneFit_history,
+    top_x_right_history, bottom_x_right_history, right_LaneFit_history, is_right_filtered = filter_history(top_x_right_history, bottom_x_right_history, right_LaneFit_history,
                                                                                                            top_x_right, bottom_x_right, right_fit)
 
 
@@ -171,22 +171,22 @@ def annotate_image(img_in):
     return result
 
 
-def filter_history(curve_history, bottom_x_history, lane_fit_history, new_curve, new_bottom_x, new_lane_fit):
+def filter_history(top_x_history, bottom_x_history, lane_fit_history, new_top_x, new_bottom_x, new_lane_fit):
     # global countFilter
-    if len(curve_history.data) is 0:
+    if len(top_x_history.data) is 0:
         print('第一次记录历史信息')
         update = True
     else:
         # 上一帧信息
-        last_curve = curve_history.get_latest()
+        last_top_x = top_x_history.get_latest()
         # last_bottom_x = bottom_x_left_history.get_mid()    #获得前5帧的中值，使用same_padding,往前面补4个相同数
         last_bottom_x = bottom_x_history.get_latest()
         last_lane_fit = lane_fit_history.get_latest()
         # 如果斜率、x轴截距超过指定阈值，当前车道线用上一帧结果代替
-        a = abs((last_curve - new_curve)/last_curve)
+        a = abs((last_top_x - new_top_x) / last_top_x)
         b = abs((last_bottom_x - new_bottom_x) / last_bottom_x)
         # print('上截距变化率a = %05f        下截距变化率b = %05f'%(a,b))
-        if (a > curve_thresh) \
+        if (a > top_x_thresh) \
                 or (b > bottom_x_thresh):
             # print('结果相对历史预测跳动过大！')
             update = False
@@ -200,12 +200,12 @@ def filter_history(curve_history, bottom_x_history, lane_fit_history, new_curve,
 
     if update is True:
         # 更新历史车道线信息
-        curve_history = curve_history.update_history(new_curve)  # 存储新车道线的曲率
+        top_x_history = top_x_history.update_history(new_top_x)  # 存储新车道线的曲率
         bottom_x_history = bottom_x_history.update_history(new_bottom_x)  # 存储新车道线的x轴截距
         lane_fit_history = lane_fit_history.update_history(new_lane_fit)  # 存储新车道线的系数信息
         is_filtered = False
     else:
-        curve_history = curve_history.update_history(last_curve)  # 存储历史车道线的曲率
+        top_x_history = top_x_history.update_history(last_top_x)  # 存储历史车道线的曲率
         bottom_x_history = bottom_x_history.update_history(last_bottom_x)  # 存储历史车道线的x轴截距
         lane_fit_history = lane_fit_history.update_history(last_lane_fit)  # 存储历史车道线的拟合系数
         is_filtered = True
@@ -217,11 +217,11 @@ def filter_history(curve_history, bottom_x_history, lane_fit_history, new_curve,
 
 
     # 指数平滑历史车道线信息
-    curve_history = curve_history.add_smoothing(alpha)
+    top_x_history = top_x_history.add_smoothing(alpha)
     bottom_x_history = bottom_x_history.add_smoothing(alpha)
     lane_fit_history = lane_fit_history.smooth_coeffs(alpha)
 
-    return curve_history, bottom_x_history, lane_fit_history, is_filtered
+    return top_x_history, bottom_x_history, lane_fit_history, is_filtered
 
 
 
@@ -232,16 +232,18 @@ def annotate_video(input_file, output_file):
     # annotated_video.write_videofile(output_file, audio=False)
     # fourcc = cv2.CV_FOURCC('M', 'J', 'P', 'G')
 
-    fps = 10  # 视频帧率
+    fps = 8  # 视频帧率
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
 
     videoWriter = cv2.VideoWriter(output_file, fourcc, fps, (1920, 1080))  # (1360,480)为视频大小
-    for i in range(18670, 20600):
+    for i in range(18660, 19300):
         img_file = '%s%06d%s' % (input_file, i, 'L.jpg')
         print(img_file)
         img12 = cv2.imread(img_file)
-        result = annotate_image(img12)
-        # cv2.imshow('img', img12)
+        converted = cv2.cvtColor(img12, cv2.COLOR_BGR2RGB)
+        result_RGB = annotate_image(converted)
+        result = cv2.cvtColor(result_RGB, cv2.COLOR_RGB2BGR)
+        # cv2.imshow('img', result)
         # cv2.waitKey(1000/int(fps))
         videoWriter.write(result)
     videoWriter.release()
@@ -250,7 +252,7 @@ def annotate_video(input_file, output_file):
 if __name__ == '__main__':
 	# Annotate the video
 
-    videodir = 'D:/CIDI/data/cidi20180505_highway_lane_video/20180505133013577.wmv'
+    # videodir = 'D:/CIDI/data/cidi20180505_highway_lane_video/20180505133013577.wmv'
     output_file = 'D:/CIDI/data/L/18670.avi'
     imagedir = 'D:/CIDI/data/L/Rectified_L/'
     annotate_video(imagedir, output_file)
