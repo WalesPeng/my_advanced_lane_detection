@@ -77,7 +77,7 @@ def line_fit(binary_warped, T):
     # plt.plot(histogram)
     # Step through the windows one by one
     # 逐一浏览窗口
-    for window in range(nwindows):
+    for window in range(nwindows-2):
         # Identify window boundaries in x and y (and right and left)
         # 确定x和y（以及右和左）的窗口边界
         win_y_low = binary_warped.shape[0] - (window+1)*window_height
@@ -115,7 +115,8 @@ def line_fit(binary_warped, T):
         else:
             if window > 2:
                 leftx_current_next = leftx_current + (leftx_current - leftx_current_last)
-                # left_lane_inds.append(binary_warped.)     # 20180516 pmh 加入方框中点作为拟合点
+                # good_left_inds =  int((win_y_low + win_y_high) / 2) * binary_warped.shape[0] + leftx_current
+                # left_lane_inds.append(np.int64(good_left_inds))     # 20180516 pmh 加入方框中点作为拟合点
             else:
                 leftx_current_next = leftx_base
 
@@ -136,6 +137,7 @@ def line_fit(binary_warped, T):
     # plt.plot(histogram)
     # plt.subplot(2, 1, 2)
     # plt.imshow(out_img, cmap='gray', vmin=0, vmax=1)
+    # cv2.imshow('out_img', out_img)
 
     # plt.savefig('D:/CIDI/data/L/line_fit_histo/')
     # plt.close()
@@ -422,11 +424,11 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
     pts_inv_right = np.array([np.flipud(np.transpose(np.vstack([right_point_inv_xx, right_point_inv_yy])))])
     pts_inv = np.hstack((pts_inv_left, pts_inv_right))
 
-    # PMH 画车道线 参数：输入图像，点坐标，是否封闭，颜色，线宽，线类型。cv2.LINE_AA是反锯齿线，画曲线比较平滑
-    cv2.polylines(color_warp, np.int_([pts]), False, (255, 0, 0), 10, cv2.LINE_AA)
-
-    for ai in a:
-        cv2.circle(color_warp, (np.int_(ai[0]), np.int_(ai[1])), 10, (0, 0, 255), -1)        # 绘制车道线两端圆点
+    # # PMH 在color_warp上画车道线 参数：输入图像，点坐标，是否封闭，颜色，线宽，线类型。cv2.LINE_AA是反锯齿线，画曲线比较平滑
+    # cv2.polylines(color_warp, np.int_([pts]), False, (255, 0, 0), 10, cv2.LINE_AA)
+    #
+    # for ai in a:
+    #     cv2.circle(color_warp, (np.int_(ai[0]), np.int_(ai[1])), 10, (0, 0, 255), -1)        # 绘制车道线两端圆点
 
     # cv2.imshow('polylines', color_warp)
     # Draw the lane onto the warped blank image将车道绘制到变形的空白图像上
@@ -444,19 +446,22 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
     newwarp[0:int(yy1[2]), int(xx1[0]):int(xx1[2])] = [0, 255, 0]
 
     if undist.shape.__len__() == 3:
-        result = cv2.addWeighted(undist, 1, newwarpNO, 0.3, 0)
+        result = cv2.addWeighted(undist, 1, newwarpNO, 0.1, 0)
     else:
         out_img = (np.dstack((undist, undist, undist)) * 255).astype('uint8')
-        result = cv2.addWeighted(out_img, 1, newwarpNO, 0.3, 0)
+        result = cv2.addWeighted(out_img, 1, newwarpNO, 0.1, 0)
 
     # 在结果图上绘制车道线
     for i in range(4):
-        cv2.circle(result, (int(xx1[i]), int(yy1[i])), 10, (0, 255, 255), -1)        # 绘制车道线两端圆点
+        cv2.circle(result, (int(xx1[i]), int(yy1[i])), 10, (255, 255, 0), -1)        # 绘制车道线两端圆点
 
-    cv2.polylines(result, np.int_([pts_inv]), False, (0, 0, 255), 6, cv2.LINE_AA)
+    cv2.polylines(result, np.int_([pts_inv]), False, (255, 0, 0), 6, cv2.LINE_AA)
+
+
     # cv2.imshow('result', result)
     # Annotate lane curvature values and vehicle offset from center
-    # 从中心注释车道曲率值和车辆偏移量
+
+    # # 从中心注释车道曲率值和车辆偏移量
     # avg_curve = (left_curve + right_curve)/2
     # label_str = 'Radius of curvature: %.1f m' % avg_curve
     # result = cv2.putText(result, label_str, (30,40), 0, 1, (0,0,0), 2, cv2.LINE_AA)
@@ -464,14 +469,14 @@ def final_viz(undist, left_fit, right_fit, m_inv, left_curve, right_curve, vehic
     # label_str = 'Vehicle offset from lane center: %.1f m' % vehicle_offset
     # result = cv2.putText(result, label_str, (30,70), 0, 1, (0,0,0), 2, cv2.LINE_AA)
 
-    # 显示过滤情况
-    if is_left_filtered is True:
-        label_str = 'Left lane is Filtered!'
-        result = cv2.putText(result, label_str, (30, 90), 0, 2, (255, 0, 0), 6, cv2.LINE_AA)
-
-    if is_right_filtered is True:
-        label_str = 'Right lane is Filtered!'
-        result = cv2.putText(result, label_str, (1030, 90), 0, 2, (255, 0, 0), 6, cv2.LINE_AA)
+    # # 显示过滤情况
+    # if is_left_filtered is True:
+    #     label_str = 'Left lane is Filtered!'
+    #     result = cv2.putText(result, label_str, (30, 90), 0, 2, (255, 0, 0), 6, cv2.LINE_AA)
+    #
+    # if is_right_filtered is True:
+    #     label_str = 'Right lane is Filtered!'
+    #     result = cv2.putText(result, label_str, (1030, 90), 0, 2, (255, 0, 0), 6, cv2.LINE_AA)
 
     return result,color_warp, newwarp, newwarpNO
 
